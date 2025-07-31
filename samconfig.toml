@@ -1,0 +1,12 @@
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "linebot-app"
+resolve_s3 = true
+s3_prefix = "linebot-app"
+region = "ap-northeast-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+disable_rollback = true
+parameter_overrides = "LineChannelAccessToken=\"v/iDPa5B/Xyn3pRWvQzOfCrRU74HBSXNp9iEsA+lyG/KZTa+q3W7y1N7/Tl2z6PTDQ1upLYjaOG1bI+NrXiK3AHt9+BNIqWiLWjJuD1wCwhKHr7JTXXt8L/CyggBQ2gE9WKtuRmOb2poLjdMBK/8iAdB04t89/1O/w1cDnyilFU=\" LineChannelSecret=\"9833476978c42077cb794582419fd54c\""
+image_repositories = []
