@@ -4,6 +4,7 @@
 
 import os
 import tempfile
+import requests
 
 from linebot import (
     LineBotApi, WebhookHandler
@@ -17,8 +18,6 @@ import boto3
 
 handler = WebhookHandler(os.getenv('LINE_CHANNEL_SECRET'))
 line_bot_api = LineBotApi(os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
-
-# static_tmp_path = os.path.join(os.path.dirname(__file__), 'static', 'tmp')
 
 client = boto3.client('rekognition')
 
