@@ -5,6 +5,8 @@
 import os
 import tempfile
 import requests
+import json
+import urllib3
 
 from linebot import (
     LineBotApi, WebhookHandler
@@ -18,6 +20,7 @@ import boto3
 
 handler = WebhookHandler(os.getenv('LINE_CHANNEL_SECRET'))
 line_bot_api = LineBotApi(os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
+ec2_ip = os.getenv('Ec2Ip')
 
 client = boto3.client('rekognition')
 
@@ -25,11 +28,48 @@ def lambda_handler(event, context):
     headers = event["headers"]
     body = event["body"]
 
+
+
+    ec2_endpoint = f"http://{ec2_ip}:8000/healthy"
+    print(ec2_endpoint)
+    # 전달할 메시지 예시
+    data = {
+        "type": "line_event",
+        "user": "테스트2",
+        "message": "테스트2"
+    }
+
+    encoded_data = json.dumps(data).encode("utf-8")
+
+    http = urllib3.PoolManager()
+    response = http.request(
+        "POST",
+        ec2_endpoint,
+        body=encoded_data,
+        headers={"Content-Type": "application/json"}
+    )
+    print("lambda_handler test")
+    print(response)
+
+
     # get X-Line-Signature header value
     signature = headers['x-line-signature']
-
-    # handle webhook body
     handler.handle(body, signature)
+
+    body = json.loads(event["body"])
+    event_type = body["events"][0]["type"]
+
+    # line_event = body["events"][0]
+
+    if event_type == "message":
+        message_type = body["events"][0]["message"]["type"]
+        if message_type == "text":
+            return handle_text_message(event)
+        if message_type == "image":
+            return handle_image_message(event)
+
+
+
 
     return {"statusCode": 200, "body": "OK"}
 
@@ -37,6 +77,10 @@ def lambda_handler(event, context):
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_text_message(event):
+    print("handle_text_message")
+
+    # handle webhook body
+
     """ TextMessage handler """
     input_text = event.message.text
 

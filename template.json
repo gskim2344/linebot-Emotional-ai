@@ -3,7 +3,8 @@
   "Transform": "AWS::Serverless-2016-10-31",
   "Parameters": {
     "LineChannelAccessToken": {"Type": "String", "Description": "LINE のアクセストークン"},
-    "LineChannelSecret": {"Type": "String", "Description": "LINE のチャンネルシークレット"}
+    "LineChannelSecret": {"Type": "String", "Description": "LINE のチャンネルシークレット"},
+    "Ec2Ip": {"Type": "String", "Description": "EC2 IP"}
   },
   "Resources": {
     "EndPointFunction": {
@@ -14,7 +15,8 @@
         "Handler": "mylinebot.lambda_handler",
         "Environment": {"Variables": {
             "LINE_CHANNEL_ACCESS_TOKEN": {"Ref": "LineChannelAccessToken"},
-            "LINE_CHANNEL_SECRET": {"Ref": "LineChannelSecret"}
+            "LINE_CHANNEL_SECRET": {"Ref": "LineChannelSecret"},
+            "Ec2Ip": {"Ref": "Ec2Ip"}
         }},
         "Policies": [{"RekognitionDetectOnlyPolicy": {}}],
         "Events": {
