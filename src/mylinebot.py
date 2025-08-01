@@ -28,39 +28,77 @@ client = boto3.client('rekognition')
 parser = WebhookParser(os.getenv('LINE_CHANNEL_SECRET'))
 
 def lambda_handler(event, context):
-    headers = event["headers"]
-    body = event["body"]
+    print("받은 이벤트:", event)
 
-    ec2_endpoint = f"http://{ec2_ip}:8000/healthy"
-    print(ec2_endpoint)
-    # 전달할 메시지 예시
-    data = {
-        "type": "line_event",
-        "user": "테스트2",
-        "message": "테스트2"
-    }
+    body = json.loads(event.get("body", "{}"))
+    event_type = body.get("type")
 
-    encoded_data = json.dumps(data).encode("utf-8")
 
-    http = urllib3.PoolManager()
-    response = http.request(
-        "POST",
-        ec2_endpoint,
-        body=encoded_data,
-        headers={"Content-Type": "application/json"}
-    )
-    handle_get_line_user_info(event)
+    type = body.get("type")
+    print("type")
+    print(type)
+    if type == "reservation":
 
-    try:
-        signature = event["headers"]["x-line-signature"]
-        handler.handle(body, signature)  # handler 내부에서 자동 분기됨
-    except InvalidSignatureError:
-        return {"statusCode": 403, "body": "Invalid signature"}
+        headers = event["headers"]
+        body = event["body"]
+        print("EC2로부터")
+        # send_line_message()
+        # line_bot_api.reply_message(
+        #     event.reply_token,
+        #     [
+        #         TextSendMessage(text=  "EC2로부터"),
+        #         StickerSendMessage(package_id='1', sticker_id='2')
+        #     ]
+        # )
 
-    return {
-        "statusCode": 200,
-        "body": json.dumps("OK")
-    }
+        # handle_get_line_user_info(event)
+        print(headers)
+        print(event)
+        body_str = event.get("body", "")
+        body = json.loads(body_str)
+        user_id = body.get("userId")
+        message = body.get("message")
+        print("user_id======="+user_id)
+        send_line_message(user_id,message)
+
+        return {
+            "statusCode": 200,
+            "body": json.dumps("OK")
+        }
+    else:
+        ec2_endpoint = f"http://{ec2_ip}:8000/healthy"
+        print(ec2_endpoint)
+
+
+        userId = handle_get_line_user_info(event)
+        # 전달할 메시지 예시
+        data = {
+            "type": "line_event2",
+            "userId": userId,
+            "user": "테스트2",
+            "message": "테스트2"
+        }
+
+        encoded_data = json.dumps(data).encode("utf-8")
+
+        http = urllib3.PoolManager()
+        response = http.request(
+            "POST",
+            ec2_endpoint,
+            body=encoded_data,
+            headers={"Content-Type": "application/json"}
+        )
+
+        try:
+            signature = event["headers"]["x-line-signature"]
+            handler.handle(body, signature)  # handler 내부에서 자동 분기됨
+        except InvalidSignatureError:
+            return {"statusCode": 403, "body": "Invalid signature"}
+
+        return {
+            "statusCode": 200,
+            "body": json.dumps("OK")
+        }
 
 def handle_get_line_user_info(event):
     headers = event["headers"]
@@ -94,6 +132,7 @@ def handle_get_line_user_info(event):
                 to=user_id,
                 messages=TextSendMessage(text=f"user_id={user_id}, name={name}====== {name}님 안녕하세요=====")
             )
+        return user_id
 
 
 @handler.add(MessageEvent, message=TextMessage)
@@ -171,3 +210,14 @@ def all_happy(result):
         if most_confident_emotion(detail["Emotions"]) != "HAPPY":
             return False
     return True
+
+def send_line_message(user_id, messages):
+    from linebot import LineBotApi
+    from linebot.models import TextSendMessage
+    line_bot_api = LineBotApi(os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
+
+    message = "\n".join(messages)
+    line_bot_api.push_message(
+        to=user_id,
+        messages=TextSendMessage(text=message)
+    )
