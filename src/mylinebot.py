@@ -7,7 +7,7 @@ import tempfile
 import requests
 import json
 import urllib3
-
+import boto3
 from linebot import (
     LineBotApi, WebhookHandler
 )
@@ -15,20 +15,21 @@ from linebot.models import (
     MessageEvent, TextMessage, TextSendMessage, StickerSendMessage, ImageMessage
 )
 from linebot.v3.messaging import MessagingApiBlob, ApiClient, Configuration
-import boto3
 
+from linebot import LineBotApi, WebhookParser
+from linebot.models import MessageEvent, TextMessage
+from linebot.exceptions import InvalidSignatureError
 
 handler = WebhookHandler(os.getenv('LINE_CHANNEL_SECRET'))
 line_bot_api = LineBotApi(os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
 ec2_ip = os.getenv('Ec2Ip')
 
 client = boto3.client('rekognition')
+parser = WebhookParser(os.getenv('LINE_CHANNEL_SECRET'))
 
 def lambda_handler(event, context):
     headers = event["headers"]
     body = event["body"]
-
-
 
     ec2_endpoint = f"http://{ec2_ip}:8000/healthy"
     print(ec2_endpoint)
@@ -48,31 +49,51 @@ def lambda_handler(event, context):
         body=encoded_data,
         headers={"Content-Type": "application/json"}
     )
-    print("lambda_handler test")
-    print(response)
+    handle_get_line_user_info(event)
 
+    try:
+        signature = event["headers"]["x-line-signature"]
+        handler.handle(body, signature)  # handler 내부에서 자동 분기됨
+    except InvalidSignatureError:
+        return {"statusCode": 403, "body": "Invalid signature"}
 
-    # get X-Line-Signature header value
-    signature = headers['x-line-signature']
-    handler.handle(body, signature)
+    return {
+        "statusCode": 200,
+        "body": json.dumps("OK")
+    }
 
-    body = json.loads(event["body"])
-    event_type = body["events"][0]["type"]
+def handle_get_line_user_info(event):
+    headers = event["headers"]
+    raw_body = event["body"]
+    if isinstance(raw_body, dict):
+        raw_body = json.dumps(raw_body)  # dict라면 JSON 문자열로 변환
+    print(raw_body)
+    try:
+        signature = headers.get("x-line-signature", "")
 
-    # line_event = body["events"][0]
+        events = parser.parse(raw_body, signature)
+        print(events)
+    except InvalidSignatureError:
+        print("InvalidSignatureError")
+        return {
+            "statusCode": 403,
+            "body": "Invalid signature"
+        }
+    for e in events:
+        if isinstance(e, MessageEvent) and isinstance(e.message, TextMessage):
+            user_id = e.source.user_id
+            print("userId:", user_id)
+            # userId를 통한 메시지 전송
 
-    if event_type == "message":
-        message_type = body["events"][0]["message"]["type"]
-        if message_type == "text":
-            return handle_text_message(event)
-        if message_type == "image":
-            return handle_image_message(event)
+            # 사용자 프로필 정보도 조회 가능
+            profile = line_bot_api.get_profile(user_id)
+            name = profile.display_name
+            print("이름:", name)
 
-
-
-
-    return {"statusCode": 200, "body": "OK"}
-
+            line_bot_api.push_message(
+                to=user_id,
+                messages=TextSendMessage(text=f"user_id={user_id}, name={name}====== {name}님 안녕하세요=====")
+            )
 
 
 @handler.add(MessageEvent, message=TextMessage)
@@ -134,10 +155,6 @@ def handle_image_message(event):
         event.reply_token,
         TextSendMessage(text=message)
     )
-
-
-    # return value
-    # delete image from file_path
     os.remove(tempfile_path)
 
 def most_confident_emotion(emotions):
